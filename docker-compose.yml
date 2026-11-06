@@ -26,11 +26,12 @@ services:
       # 工作区目录：上游默认容器路径就是 /siyuan/workspace，入口脚本按 PUID/PGID 调整属主。
       - ${WONTON_APP_DATA}/workspace:/siyuan/workspace
     healthcheck:
-      # 真正可用：带着访问授权码（HTTP Basic，用户名是工作区名）调 lsNotebooks，
-      # 走到工作区的 SQLite 索引并返回笔记本列表，而不是只看进程活着。
-      # 镜像是 alpine，用自带的 busybox wget；-Y off 是必须的：busybox wget 不看 no_proxy，
-      # 宿主给容器注入的 http_proxy 会把回环请求发去代理（规范「网络」一节）。
-      test: ["CMD-SHELL", "wget -Y off -qO- --header='Content-Type: application/json' --post-data='{}' --user=workspace --password=\"$${SIYUAN_ACCESS_AUTH_CODE}\" http://127.0.0.1:6806/api/notebook/lsNotebooks | grep -q notebooks"]
+      # 真正可用：带着访问授权码调 lsNotebooks，走到工作区的 SQLite 索引并返回笔记本列表，
+      # 而不是只看进程活着。锁屏开启后 API 要凭据：思源接受 HTTP Basic（用户名固定是工作区名
+      # workspace，密码是访问授权码），busybox wget 没有 --user/--password，用 --header 带
+      # Authorization。镜像是 alpine；-Y off 是必须的：busybox wget 不看 no_proxy，宿主注入的
+      # http_proxy 会把回环请求发去代理（规范「网络」一节）。
+      test: ["CMD-SHELL", "wget -Y off -qO- --header='Content-Type: application/json' --header=\"Authorization: Basic $(printf 'workspace:%s' \"$${SIYUAN_ACCESS_AUTH_CODE}\" | base64)\" --post-data='{}' http://127.0.0.1:6806/api/notebook/lsNotebooks | grep -q notebooks"]
       interval: 30s
       timeout: 10s
       retries: 5
