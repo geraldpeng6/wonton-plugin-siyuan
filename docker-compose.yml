@@ -23,8 +23,9 @@ services:
       - ${WONTON_APP_DATA}/workspace:/siyuan/workspace
     healthcheck:
       # 真正可用：lsNotebooks 走到工作区的 SQLite 索引并返回笔记本列表，而不是只看进程活着。
-      # 镜像是 alpine，用自带的 busybox wget。
-      test: ["CMD-SHELL", "wget -qO- --header='Content-Type: application/json' --post-data='{}' http://127.0.0.1:6806/api/notebook/lsNotebooks | grep -q notebooks"]
+      # 镜像是 alpine，用自带的 busybox wget；-Y off 是必须的：busybox wget 不看 no_proxy，
+      # 宿主给容器注入的 http_proxy 会把回环请求发去代理（规范「网络」一节）。
+      test: ["CMD-SHELL", "wget -Y off -qO- --header='Content-Type: application/json' --post-data='{}' http://127.0.0.1:6806/api/notebook/lsNotebooks | grep -q notebooks"]
       interval: 30s
       timeout: 10s
       retries: 5
