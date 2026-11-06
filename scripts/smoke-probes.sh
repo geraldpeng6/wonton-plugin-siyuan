@@ -1,17 +1,33 @@
 # shellcheck shell=bash
 # scripts/smoke.sh / e2e/smoke.sh source 本文件，不单独执行。
 #
-# 思源笔记：sso=none。思源是单用户工作区，没有用户体系：锁屏密码用上游官方开关
-# SIYUAN_ACCESS_AUTH_CODE_BYPASS 关掉，网关会话打开网页直达工作区（等价管理员），
-# 没有当前用户接口可断言。清单没有 mcp。
+# 思源笔记：sso=none + 思源自带锁屏（访问授权码由云吞生成）。思源是单用户工作区，没有用户体系，
+# 锁屏之后的会话不分身份，没有当前用户接口可断言。清单没有 mcp。
+#
+# 真实登录链：dweb / 落在 /welcome 引导页（nginx），页面带着访问授权码（只有经网关的主人拿得到）；
+# 从页面取出授权码 POST /api/system/loginAuth 换工作区会话，之后的应用接口都带着它会话。
 export IDENTITY_NA=1
-export SMOKE_NOTE="思源是单用户工作区，没有用户体系：锁屏密码按上游官方开关关闭，网关登录后直接打开工作区（等价管理员），无当前用户接口可断言。"
-export E2E_NOTE="思源是单用户工作区：网关登录后直接打开工作区，应用内无用户身份可断言。"
+export SMOKE_NOTE="思源是单用户工作区，没有用户体系：锁屏（访问授权码）之后会话不分身份，无当前用户接口可断言；授权码经 /welcome 引导页交给主人。"
+export E2E_NOTE="思源是单用户工作区：锁屏后的会话不分身份，应用内无用户身份可断言。"
 
-web_assert() { grep -q '<title>SiYuan</title>'; }
+web_assert() { grep -q '的访问授权码'; }
+
+# 登录：取引导页里的授权码（页面上 data-code 属性，避免正则抠正文），POST loginAuth 建工作区会话。
+# dweb / web_get 的请求都走网关带用户会话；应用的会话 Cookie 存进同一个 jar 后，dweb 也能直达应用。
+siyuan_login() (
+  set -eu
+  local page code jar="${E2E_JAR:-${SMOKE_JAR:-}}" url="${E2E_WEB_URL:-${SMOKE_WEB_URL:-}}"
+  [[ -n "$jar" && -n "$url" ]] || { echo "缺会话 jar 或网页地址"; return 1; }
+  page="$(dweb /)" || { echo "引导页失败：$page"; return 1; }
+  code="$(sed -n 's/.*data-code="\([^"]*\)".*/\1/p' <<<"$page" | head -1)"
+  [[ -n "$code" ]] || { echo "引导页没有 data-code：$(head -c 120 <<<"$page")"; return 1; }
+  curl -fsS --noproxy '*' -b "$jar" -c "$jar" --max-time 30 \
+    -H 'Content-Type: application/json' -d "{\"authCode\":\"$code\",\"rememberMe\":true}" \
+    "$url/api/system/loginAuth" >/dev/null || { echo "loginAuth 失败"; return 1; }
+)
 
 # 数据：笔记本是思源的工作区持久数据（在插件数据目录里，升级、重装都保留）。
-# data_write 建一个带随机标记的笔记本；data_check 在笔记本列表里找回它。
+# data_write 登录后建一个带随机标记的笔记本；data_check 在笔记本列表里找回它。
 # 标记放在 .wonton/ 下（开发环境这里是目录；e2e 的 SMOKE_STATE 是文件，不能当目录用）。
 mark_file() { printf '%s' "${E2E_DIR:-${SMOKE_DIR:-?}}/.wonton/siyuan-data-mark"; }
 
@@ -20,6 +36,7 @@ data_write() (
   local mark out file
   file="$(mark_file)"
   mkdir -p "$(dirname "$file")"
+  siyuan_login
   mark="$(date +%Y%m%d%H%M%S)-$RANDOM"
   out="$(web_post /api/notebook/createNotebook "{\"name\":\"wonton-smoke-$mark\"}")" ||
     { echo "创建笔记本失败：$out"; return 1; }
@@ -41,7 +58,7 @@ data_check() (
   echo "笔记本 wonton-smoke-$mark 还在：升级/重装保住了数据"
 )
 
-# POST 助手：带用户会话（核心网关会话）向应用自己的接口发 JSON，返回响应体。
+# POST 助手：带用户会话（核心网关会话 + 应用会话）向应用自己的接口发 JSON，返回响应体。
 web_post() (
   set -eu
   local path="$1" body="$2" url="${E2E_WEB_URL:-${SMOKE_WEB_URL:-}}"
