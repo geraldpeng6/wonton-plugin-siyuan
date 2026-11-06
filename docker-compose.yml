@@ -45,8 +45,8 @@ x-wonton:
   screenshots: [screenshots/mobile-editor.png]
   author: { name: geraldpeng6, url: https://github.com/geraldpeng6 }
   homepage: https://b3log.org/siyuan
-  # 上游应用的许可证；插件包自己的许可证写在仓库的 LICENSE 里。
-  license: AGPL-3.0-only
+  # 上游应用的许可证（源码文件头 SPDX: AGPL-3.0-or-later）；插件包自己的许可证写在仓库 LICENSE 里。
+  license: AGPL-3.0-or-later
   tags:
     zh: [笔记, 文档, Markdown]
     en: [Notes, Documents, Markdown]
