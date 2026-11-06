@@ -5,7 +5,8 @@
 # 锁屏之后的会话不分身份，没有当前用户接口可断言。清单没有 mcp。
 #
 # 真实登录链：dweb / 落在 /welcome 引导页（nginx），页面带着访问授权码（只有经网关的主人拿得到）；
-# 从页面取出授权码 POST /api/system/loginAuth 换工作区会话，之后的应用接口都带着它会话。
+# 从页面取出授权码 POST /api/system/loginAuth 换工作区会话（Cookie 存回 SMOKE_JAR），之后的应用
+# 接口都带着它会话。只依赖模板约定的变量（SMOKE_STATE/SMOKE_JAR/SMOKE_WEB_URL）和助手 web_get、dweb。
 export IDENTITY_NA=1
 export SMOKE_NOTE="思源是单用户工作区，没有用户体系：锁屏（访问授权码）之后会话不分身份，无当前用户接口可断言；授权码经 /welcome 引导页交给主人。"
 export E2E_NOTE="思源是单用户工作区：锁屏后的会话不分身份，应用内无用户身份可断言。"
@@ -13,44 +14,42 @@ export E2E_NOTE="思源是单用户工作区：锁屏后的会话不分身份，
 web_assert() { grep -q '的访问授权码'; }
 
 # 登录：取引导页里的授权码（页面上 data-code 属性，避免正则抠正文），POST loginAuth 建工作区会话。
-# dweb / web_get 的请求都走网关带用户会话；应用的会话 Cookie 存进同一个 jar 后，dweb 也能直达应用。
+# 会话 Cookie 存进 SMOKE_JAR，之后 dweb / web_post 都带着它。
 siyuan_login() (
   set -eu
-  local page code jar="${E2E_JAR:-${SMOKE_JAR:-}}" url="${E2E_WEB_URL:-${SMOKE_WEB_URL:-}}"
-  [[ -n "$jar" && -n "$url" ]] || { echo "缺会话 jar 或网页地址"; return 1; }
+  local page code
+  [[ -n "${SMOKE_JAR:-}" && -n "${SMOKE_WEB_URL:-}" ]] || { echo "缺 SMOKE_JAR 或 SMOKE_WEB_URL"; return 1; }
   page="$(dweb /)" || { echo "引导页失败：$page"; return 1; }
   code="$(sed -n 's/.*data-code="\([^"]*\)".*/\1/p' <<<"$page" | head -1)"
   [[ -n "$code" ]] || { echo "引导页没有 data-code：$(head -c 120 <<<"$page")"; return 1; }
-  curl -fsS --noproxy '*' -b "$jar" -c "$jar" --max-time 30 \
+  curl -fsS --noproxy '*' -b "$SMOKE_JAR" -c "$SMOKE_JAR" --max-time 30 \
     -H 'Content-Type: application/json' -d "{\"authCode\":\"$code\",\"rememberMe\":true}" \
-    "$url/api/system/loginAuth" >/dev/null || { echo "loginAuth 失败"; return 1; }
+    "$SMOKE_WEB_URL/api/system/loginAuth" >/dev/null || { echo "loginAuth 失败"; return 1; }
 )
 
 # 数据：笔记本是思源的工作区持久数据（在插件数据目录里，升级、重装都保留）。
-# data_write 登录后建一个带随机标记的笔记本；data_check 在笔记本列表里找回它。
-# 标记放在 .wonton/ 下（开发环境这里是目录；e2e 的 SMOKE_STATE 是文件，不能当目录用）。
-mark_file() { printf '%s' "${E2E_DIR:-${SMOKE_DIR:-?}}/.wonton/siyuan-data-mark"; }
-
+# data_write 登录后建一个带随机标记的笔记本，标记写进 SMOKE_STATE；data_check 读回标记，
+# 在笔记本列表里找回它。
 data_write() (
   set -eu
-  local mark out file
-  file="$(mark_file)"
-  mkdir -p "$(dirname "$file")"
+  local mark out
+  [[ -n "${SMOKE_STATE:-}" ]] || { echo "缺 SMOKE_STATE"; return 1; }
   siyuan_login
   mark="$(date +%Y%m%d%H%M%S)-$RANDOM"
   out="$(web_post /api/notebook/createNotebook "{\"name\":\"wonton-smoke-$mark\"}")" ||
     { echo "创建笔记本失败：$out"; return 1; }
   jq -e '.code == 0' <<<"$out" >/dev/null || { echo "createNotebook 返回非 0：$out"; return 1; }
-  printf '%s' "$mark" >"$file"
+  printf '%s' "$mark" >"$SMOKE_STATE"
   echo "已建笔记本 wonton-smoke-$mark"
 )
 
 data_check() (
   set -eu
-  local mark out file
-  file="$(mark_file)"
-  mark="$(cat "$file" 2>/dev/null)" || true
+  local mark out
+  [[ -n "${SMOKE_STATE:-}" ]] || { echo "缺 SMOKE_STATE"; return 1; }
+  mark="$(cat "$SMOKE_STATE" 2>/dev/null)" || true
   [[ -n "$mark" ]] || { echo "没有 data_write 写下的标记"; return 1; }
+  siyuan_login
   out="$(web_post /api/notebook/lsNotebooks '{}')" || { echo "读笔记本列表失败：$out"; return 1; }
   jq -e --arg n "wonton-smoke-$mark" \
     '.code == 0 and any(.data.notebooks[]; .name == $n)' <<<"$out" >/dev/null ||
@@ -58,11 +57,11 @@ data_check() (
   echo "笔记本 wonton-smoke-$mark 还在：升级/重装保住了数据"
 )
 
-# POST 助手：带用户会话（核心网关会话 + 应用会话）向应用自己的接口发 JSON，返回响应体。
+# POST 助手：带用户会话（SMOKE_JAR 里的网关会话 + 应用会话）向应用自己的接口发 JSON。
 web_post() (
   set -eu
-  local path="$1" body="$2" url="${E2E_WEB_URL:-${SMOKE_WEB_URL:-}}"
-  [[ -n "$url" ]] || { echo "没有插件网页地址"; return 1; }
-  curl -fsS --noproxy '*' -b "${E2E_JAR:-${SMOKE_JAR:-}}" --max-time 30 \
-    -H 'Content-Type: application/json' -d "$body" "$url$path"
+  local path="$1" body="$2"
+  [[ -n "${SMOKE_WEB_URL:-}" ]] || { echo "缺 SMOKE_WEB_URL"; return 1; }
+  curl -fsS --noproxy '*' -b "${SMOKE_JAR:-}" --max-time 30 \
+    -H 'Content-Type: application/json' -d "$body" "$SMOKE_WEB_URL$path"
 )
