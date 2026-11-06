@@ -23,8 +23,6 @@ Markdown 所见即所得，浏览器即开即用，手机浏览器是移动版�
 ## 镜像
 
 - 上游官方镜像 `b3log/siyuan`（amd64/arm64 多架构，Docker Hub），按清单列表摘要固定。
-- 空载内存实测约 180 MiB（单笔记本、无索引任务，Docker `stats`），清单 `requirements.memory`
-  取 512M。
 
 ## 图标
 
