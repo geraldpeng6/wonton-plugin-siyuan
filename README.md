@@ -21,6 +21,8 @@ Markdown 所见即所得，浏览器即开即用，手机浏览器是移动版�
 插件的网页地址是 http。单容器实测：按云吞的注入方式配 `SIYUAN_OIDC_*`（http 回调），容器启动即
 退出（`Docker access authentication configuration is invalid`，退出码 22），插件装不上；就算跳过
 启动校验，身份提供方登记的回调也是 http，思源发出的 https 回调对不上，登录链走不完。
+顺带说明：issuer 只在 loopback/`.localhost` 域名下接受 http，生产域名上 http 的
+`SIYUAN_OIDC_ISSUER_URL` 本身也会被思源拒绝——所以这不只是云吞开发环境的问题。
 
 所以按云吞的 `sso: none` 接：网关把关，应用侧用思源自己的锁屏密码（访问授权码）。等核心网关有
 https 公开地址后，改法是：`webui.sso` 换成 `oidc`、`oidc.redirect_paths` 配

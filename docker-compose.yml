@@ -113,7 +113,7 @@ x-wonton:
     en: Take block-level linked notes in the browser with Markdown WYSIWYG; the data stays at home
   icon: icon.svg
   notices: [NOTICE]
-  screenshots: [screenshots/mobile-editor.png]
+  screenshots: [screenshots/mobile-editor.png, screenshots/mobile-home.png]
   author: { name: geraldpeng6, url: https://github.com/geraldpeng6 }
   homepage: https://b3log.org/siyuan
   # 上游应用的许可证（源码文件头 SPDX: AGPL-3.0-or-later）；插件包自己的许可证写在仓库 LICENSE 里。
