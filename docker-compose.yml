@@ -9,7 +9,7 @@
 # model/oidc.go 对非本机请求强制 https），而云吞的网页地址是 http，接不上，见仓库 README。
 services:
   siyuan:
-    # 上游官方镜像（b3log/siyuan，license: AGPL-3.0）。
+    # 上游官方镜像（b3log/siyuan，license: AGPL-3.0-or-later）。
     # 镜像按摘要固定（多架构清单的摘要，amd64/arm64），标签只给人看。
     image: b3log/siyuan:v3.8.9@sha256:4f9c119048b9dc685603b04aebf9e9d513695014c9fbd834e0dadd1c22801235
     # v3.7.0 起必须显式带 serve 子命令（上游 README）。
@@ -69,7 +69,7 @@ x-wonton:
     port: 6806
     sso: none
   permissions: []
-  # 多架构镜像；上游没有写部署内存下限，按开发机实测空载取整（实测见仓库 README）。
+  # 多架构镜像；上游没有写部署内存下限，按空载实测取整（实测方式见 PR）。
   requirements:
     arch: [amd64, arm64]
     memory: 512M
