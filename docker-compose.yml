@@ -20,6 +20,10 @@ services:
     command: ["serve", "--workspace=/siyuan/workspace"]
     environment:
       TZ: ${TZ}
+      # 上游 entrypoint 按 PUID/PGID chown 工作区再降权（默认 1000）；不传的话宿主 PUID≠1000 时
+      # 数据目录会被整体改成 1000:1000，主人失去对自己数据目录的写权限。空值时上游自己落回 1000。
+      PUID: ${PUID}
+      PGID: ${PGID}
       # 思源自带的锁屏密码：云吞生成的插件密钥，主人第一次从 /welcome 拿到后输入（可记住）。
       SIYUAN_ACCESS_AUTH_CODE: ${WONTON_SECRET_ACCESS_AUTH_CODE}
     volumes:
