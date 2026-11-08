@@ -17,14 +17,16 @@ web_assert() { grep -q '的访问授权码'; }
 # 会话 Cookie 存进 SMOKE_JAR，之后 dweb / web_post 都带着它。
 siyuan_login() (
   set -eu
-  local page code
+  local page code out
   [[ -n "${SMOKE_JAR:-}" && -n "${SMOKE_WEB_URL:-}" ]] || { echo "缺 SMOKE_JAR 或 SMOKE_WEB_URL"; return 1; }
   page="$(dweb /)" || { echo "引导页失败：$page"; return 1; }
   code="$(sed -n 's/.*data-code="\([^"]*\)".*/\1/p' <<<"$page" | head -1)"
-  [[ -n "$code" ]] || { echo "引导页没有 data-code：$(head -c 120 <<<"$page")"; return 1; }
-  curl -fsS --noproxy '*' -b "$SMOKE_JAR" -c "$SMOKE_JAR" --max-time 30 \
+  [[ -n "$code" ]] || { echo "引导页没有 data-code：$(head -c 200 <<<"$page")"; return 1; }
+  out="$(curl -sS --noproxy '*' -b "$SMOKE_JAR" -c "$SMOKE_JAR" --max-time 30 -w '\n%{http_code}' \
     -H 'Content-Type: application/json' -d "{\"authCode\":\"$code\",\"rememberMe\":true}" \
-    "$SMOKE_WEB_URL/api/system/loginAuth" >/dev/null || { echo "loginAuth 失败"; return 1; }
+    "${SMOKE_WEB_URL%/}/api/system/loginAuth")" || { echo "loginAuth 请求失败：$out"; return 1; }
+  [[ "${out##*$'\n'}" == 200 && "$out" == *'"code":0'* ]] ||
+    { echo "loginAuth 没通过（HTTP ${out##*$'\n'}）：$(head -c 200 <<<"${out%$'\n'*}")"; return 1; }
 )
 
 # 数据：笔记本是思源的工作区持久数据（在插件数据目录里，升级、重装都保留）。
@@ -64,8 +66,11 @@ data_check() (
 # POST 助手：带用户会话（SMOKE_JAR 里的网关会话 + 应用会话）向应用自己的接口发 JSON。
 web_post() (
   set -eu
-  local path="$1" body="$2"
+  local path="$1" body="$2" out
   [[ -n "${SMOKE_WEB_URL:-}" ]] || { echo "缺 SMOKE_WEB_URL"; return 1; }
-  curl -fsS --noproxy '*' -b "${SMOKE_JAR:-}" --max-time 30 \
-    -H 'Content-Type: application/json' -d "$body" "$SMOKE_WEB_URL$path"
+  out="$(curl -sS --noproxy '*' -b "${SMOKE_JAR:-}" --max-time 30 -w '\n%{http_code}' \
+    -H 'Content-Type: application/json' -d "$body" "${SMOKE_WEB_URL%/}$path")" ||
+    { echo "请求失败：$out"; return 1; }
+  [[ "${out##*$'\n'}" == 200 ]] || { echo "HTTP ${out##*$'\n'}：$(head -c 200 <<<"${out%$'\n'*}")"; return 1; }
+  printf '%s' "${out%$'\n'*}"
 )
