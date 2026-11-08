@@ -32,8 +32,9 @@ siyuan_login() (
 # 数据：笔记本是思源的工作区持久数据（在插件数据目录里，升级、重装都保留）。
 # data_write 登录后建一个带随机标记的笔记本，标记写进 SMOKE_STATE；data_check 读回标记，
 # 在笔记本列表里找回它。
-marker_file() { # SMOKE_STATE 在套件里是状态目录（e2e 传的是标记文件本身），标记放对应路径
-  if [[ -d "$SMOKE_STATE" ]]; then printf '%s' "$SMOKE_STATE/siyuan-marker"; else printf '%s' "${SMOKE_STATE}.marker"; fi
+marker_file() { # 套件新契约：SMOKE_STATE 是预建的空标记文件，data_write 覆盖写、data_check 读；
+  # 旧套件里它是状态目录，标记放目录内。两种形态都能跑。
+  if [[ -d "$SMOKE_STATE" ]]; then printf '%s' "$SMOKE_STATE/siyuan-marker"; else printf '%s' "$SMOKE_STATE"; fi
 }
 
 data_write() (
