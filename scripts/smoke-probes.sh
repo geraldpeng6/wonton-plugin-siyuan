@@ -30,6 +30,10 @@ siyuan_login() (
 # 数据：笔记本是思源的工作区持久数据（在插件数据目录里，升级、重装都保留）。
 # data_write 登录后建一个带随机标记的笔记本，标记写进 SMOKE_STATE；data_check 读回标记，
 # 在笔记本列表里找回它。
+marker_file() { # SMOKE_STATE 在套件里是状态目录（e2e 传的是标记文件本身），标记放对应路径
+  if [[ -d "$SMOKE_STATE" ]]; then printf '%s' "$SMOKE_STATE/siyuan-marker"; else printf '%s' "${SMOKE_STATE}.marker"; fi
+}
+
 data_write() (
   set -eu
   local mark out
@@ -39,7 +43,7 @@ data_write() (
   out="$(web_post /api/notebook/createNotebook "{\"name\":\"wonton-smoke-$mark\"}")" ||
     { echo "创建笔记本失败：$out"; return 1; }
   jq -e '.code == 0' <<<"$out" >/dev/null || { echo "createNotebook 返回非 0：$out"; return 1; }
-  printf '%s' "$mark" >"$SMOKE_STATE"
+  printf '%s' "$mark" >"$(marker_file)"
   echo "已建笔记本 wonton-smoke-$mark"
 )
 
@@ -47,7 +51,7 @@ data_check() (
   set -eu
   local mark out
   [[ -n "${SMOKE_STATE:-}" ]] || { echo "缺 SMOKE_STATE"; return 1; }
-  mark="$(cat "$SMOKE_STATE" 2>/dev/null)" || true
+  mark="$(cat "$(marker_file)" 2>/dev/null)" || true
   [[ -n "$mark" ]] || { echo "没有 data_write 写下的标记"; return 1; }
   siyuan_login
   out="$(web_post /api/notebook/lsNotebooks '{}')" || { echo "读笔记本列表失败：$out"; return 1; }
