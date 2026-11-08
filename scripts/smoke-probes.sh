@@ -17,19 +17,26 @@ web_assert() { grep -q '的访问授权码'; }
 # 会话 Cookie 存进 SMOKE_JAR，之后 dweb / web_post 都带着它。
 siyuan_login() (
   set -eu
-  local page code
+  local page code out
   [[ -n "${SMOKE_JAR:-}" && -n "${SMOKE_WEB_URL:-}" ]] || { echo "缺 SMOKE_JAR 或 SMOKE_WEB_URL"; return 1; }
   page="$(dweb /)" || { echo "引导页失败：$page"; return 1; }
   code="$(sed -n 's/.*data-code="\([^"]*\)".*/\1/p' <<<"$page" | head -1)"
-  [[ -n "$code" ]] || { echo "引导页没有 data-code：$(head -c 120 <<<"$page")"; return 1; }
-  curl -fsS --noproxy '*' -b "$SMOKE_JAR" -c "$SMOKE_JAR" --max-time 30 \
+  [[ -n "$code" ]] || { echo "引导页没有 data-code：$(head -c 200 <<<"$page")"; return 1; }
+  out="$(curl -sS --noproxy '*' -b "$SMOKE_JAR" -c "$SMOKE_JAR" --max-time 30 -w '\n%{http_code}' \
     -H 'Content-Type: application/json' -d "{\"authCode\":\"$code\",\"rememberMe\":true}" \
-    "$SMOKE_WEB_URL/api/system/loginAuth" >/dev/null || { echo "loginAuth 失败"; return 1; }
+    "${SMOKE_WEB_URL%/}/api/system/loginAuth")" || { echo "loginAuth 请求失败：$out"; return 1; }
+  [[ "${out##*$'\n'}" == 200 && "$out" == *'"code":0'* ]] ||
+    { echo "loginAuth 没通过（HTTP ${out##*$'\n'}）：$(head -c 200 <<<"${out%$'\n'*}")"; return 1; }
 )
 
 # 数据：笔记本是思源的工作区持久数据（在插件数据目录里，升级、重装都保留）。
 # data_write 登录后建一个带随机标记的笔记本，标记写进 SMOKE_STATE；data_check 读回标记，
 # 在笔记本列表里找回它。
+marker_file() { # 套件新契约：SMOKE_STATE 是预建的空标记文件，data_write 覆盖写、data_check 读；
+  # 旧套件里它是状态目录，标记放目录内。两种形态都能跑。
+  if [[ -d "$SMOKE_STATE" ]]; then printf '%s' "$SMOKE_STATE/siyuan-marker"; else printf '%s' "$SMOKE_STATE"; fi
+}
+
 data_write() (
   set -eu
   local mark out
@@ -39,7 +46,7 @@ data_write() (
   out="$(web_post /api/notebook/createNotebook "{\"name\":\"wonton-smoke-$mark\"}")" ||
     { echo "创建笔记本失败：$out"; return 1; }
   jq -e '.code == 0' <<<"$out" >/dev/null || { echo "createNotebook 返回非 0：$out"; return 1; }
-  printf '%s' "$mark" >"$SMOKE_STATE"
+  printf '%s' "$mark" >"$(marker_file)"
   echo "已建笔记本 wonton-smoke-$mark"
 )
 
@@ -47,7 +54,7 @@ data_check() (
   set -eu
   local mark out
   [[ -n "${SMOKE_STATE:-}" ]] || { echo "缺 SMOKE_STATE"; return 1; }
-  mark="$(cat "$SMOKE_STATE" 2>/dev/null)" || true
+  mark="$(cat "$(marker_file)" 2>/dev/null)" || true
   [[ -n "$mark" ]] || { echo "没有 data_write 写下的标记"; return 1; }
   siyuan_login
   out="$(web_post /api/notebook/lsNotebooks '{}')" || { echo "读笔记本列表失败：$out"; return 1; }
@@ -60,8 +67,11 @@ data_check() (
 # POST 助手：带用户会话（SMOKE_JAR 里的网关会话 + 应用会话）向应用自己的接口发 JSON。
 web_post() (
   set -eu
-  local path="$1" body="$2"
+  local path="$1" body="$2" out
   [[ -n "${SMOKE_WEB_URL:-}" ]] || { echo "缺 SMOKE_WEB_URL"; return 1; }
-  curl -fsS --noproxy '*' -b "${SMOKE_JAR:-}" --max-time 30 \
-    -H 'Content-Type: application/json' -d "$body" "$SMOKE_WEB_URL$path"
+  out="$(curl -sS --noproxy '*' -b "${SMOKE_JAR:-}" --max-time 30 -w '\n%{http_code}' \
+    -H 'Content-Type: application/json' -d "$body" "${SMOKE_WEB_URL%/}$path")" ||
+    { echo "请求失败：$out"; return 1; }
+  [[ "${out##*$'\n'}" == 200 ]] || { echo "HTTP ${out##*$'\n'}：$(head -c 200 <<<"${out%$'\n'*}")"; return 1; }
+  printf '%s' "${out%$'\n'*}"
 )
