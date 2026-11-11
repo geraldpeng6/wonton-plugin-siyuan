@@ -3,8 +3,8 @@
 把[思源笔记](https://github.com/siyuan-note/siyuan)装进云吞：本地优先的个人知识库，块级引用、双链和
 Markdown 所见即所得，浏览器即开即用，手机浏览器是移动版布局。
 
-开发流程见[插件开发指南](https://github.com/geraldpeng6/wonton-docs/blob/main/develop.md)，
-规则见[插件规范](https://github.com/geraldpeng6/wonton-docs/blob/main/plugin-spec.md)。
+开发流程见[插件开发指南](https://github.com/wontonapp/wonton-docs/blob/main/develop.md)，
+规则见[插件规范](https://github.com/wontonapp/wonton-docs/blob/main/plugin-spec.md)。
 
 ## 用法
 
