@@ -111,10 +111,10 @@ x-wonton:
   id: org.b3log.siyuan
   version: 0.1.1
   kind: app
-  title: { zh: 思源笔记, en: SiYuan }
+  title: { zh: 知识笔记本（思源笔记）, en: Knowledge Notebook (SiYuan) }
   description:
-    zh: 在网页里写笔记：块级引用、双链、Markdown 所见即所得，数据都在自己家里
-    en: Take block-level linked notes in the browser with Markdown WYSIWYG; the data stays at home
+    zh: 给长期积累用的笔记本：任何一段话都能被别的笔记引用，笔记之间自然连成一张网，还带大纲和复习卡片。写读书笔记、学习笔记，越记越成体系。
+    en: "A notebook for knowledge you build over years: any paragraph can be linked from another note so your notes grow into a web, with outlines and flashcards built in. Great for study and reading notes."
   icon: icon.svg
   notices: [NOTICE]
   screenshots: [screenshots/mobile-editor.png, screenshots/mobile-home.png]
@@ -127,7 +127,7 @@ x-wonton:
     en: [Notes, Documents, Markdown]
   about:
     zh: |
-      思源笔记的网页版：块级引用和双链、Markdown 所见即所得、大纲、反链面板、闪卡复习、数据库表格，多标签和分屏编辑。
+      思源笔记的网页版：笔记按“块”编辑——一段话、一张图都是一块，块与块互相引用、自动连成一张网；还带大纲、复习卡片、表格，支持多标签页和分屏。
 
       笔记、图片附件和索引全部存在这台服务器的插件数据目录里，本地优先；手机浏览器打开就是移动版布局，可以加到主屏。
 
@@ -135,7 +135,7 @@ x-wonton:
 
       集市主题和插件下载、云同步、AI 写作这些要连外网的功能默认用不了——本插件不申请出网权限，笔记数据只留在家里。
     en: |
-      SiYuan in the browser: block-level references and backlinks, Markdown WYSIWYG, outlines, flashcards, database tables, multi-tab and split editing.
+      SiYuan in the browser: notes are edited as blocks — a paragraph or an image is one block, and blocks reference each other to grow into a web of links; with outlines, flashcards, tables, tabs and split view.
 
       Notebooks, assets and indexes all live in this server's plugin data directory, local-first; the phone browser gets the mobile layout and can be added to the home screen.
 
